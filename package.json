@@ -16,5 +16,8 @@
     "log-update": "^1.0.2",
     "meow": "^3.7.0",
     "node-wifi-scanner": "^1.0.0"
+  },
+  "engines": {
+    "node": ">=7.0.0"
   }
 }

