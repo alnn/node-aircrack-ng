@@ -22,15 +22,31 @@ if (module.parent) {
 } else {
 
   const processAirodumpData = (data) => {
-    if (!Object.keys(data.items).length) {
+    const stationMACs = Object.keys(data.items);
+    const currIndex = data.getCurrentNum();
+
+    if (!stationMACs.length) {
       return;
     }
 
-    // can be attacked
-    ctrls.render(data);
+    // Prepare for rendering
+    const fields = ['#', 'STATION', ...Object.keys(data.items[stationMACs[0]])];
+    const lines = stationMACs.map((MAC, index) => [
+      (index + 1).toString(),
+      MAC,
+      ...Object.values(data.items[MAC])
+    ].map((item) => index === currIndex ? item.bgRed.white : item));
+
+    ctrls.render([
+      fields,
+      ...lines,
+      [],
+      ['',`current #: ${currIndex + 1}`]
+    ], [
+      `    a = attack    ${String.fromCharCode(8593)}${String.fromCharCode(8595)} = choose   q = quit`
+    ]);
   };
 
-  //airodump.run('wlp0s20f0u4');
   iwconfig.getInterfaces()
     .then((ifaceString) => new IFace(ifaceString))
     .then((iface) => iface.down())

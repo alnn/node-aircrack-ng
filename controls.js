@@ -7,6 +7,11 @@ const keypress = require('keypress');
 const os = require('os');
 const colors = require('colors');
 
+const airodump = require('./airodump-ng');
+const airmon = require('./airmon-ng');
+const iwconfig = require('./iwconfig');
+const IFace = require('./interface');
+
 const tableOptions = {
   chars: {
     'top': '',
@@ -40,57 +45,92 @@ const self = meow({
 
 keypress(process.stdin);
 
-self.render = (message) => {
+self.render = (message, ctrlInfo) => {
 
   let output;
 
   if ('object' === typeof message) {
 
-    let lines = ['', '\u001b\[J'];
-    let i = 1;
-    let fields;
-    let stationLines = [];
-
-    for (let station in message.items) {
-
-      fields = ['#', 'STATION'];
-      for (let field in message.items[station]) {
-        fields.push(field);
-      }
-
-      let line = [i.toString() , station, ...Object.values(message.items[station])];
-
-      if (message.getCurrentNum() === i - 1) {
-        line = line.map((item) => item.bgRed.white);
-      }
-
-      stationLines.push(line);
-      i++;
-    }
-
+    const lines = ['', '\u001b\[J'];
 
     const table = new Table(tableOptions);
-    table.push(fields);
-    stationLines.forEach((line) => table.push(line));
+    message.forEach((line) => table.push(line));
 
     lines.push(table.toString());
 
+    ctrlInfo = Array.isArray(ctrlInfo) ? ctrlInfo : [];
+
     output = [...lines,
       '',
-      `STATION <---> BSSID #: ${message.getCurrentNum() + 1}`,
-      `    a = attack    ${String.fromCharCode(8593)}${String.fromCharCode(8595)} = choose   q = quit`,
+      ...ctrlInfo,
       '\u001b\[1\;1H',
     ];
 
   } else {
     output = [
       '',
+      '\u001b\[J',
       '    ' + message,
-      ''
+      '\u001b\[1\;1H'
     ];
   }
 
   logUpdate(output.join(os.EOL));
+
+};
+
+self.monitor = () => {
+
+  const processAirodumpData = (data) => {
+    const stationMACs = Object.keys(data.items);
+    const currIndex = data.getCurrentNum();
+
+    if (!stationMACs.length) {
+      return;
+    }
+
+    // Prepare for rendering
+    const fields = ['#', 'STATION', ...Object.keys(data.items[stationMACs[0]])];
+    const lines = stationMACs.map((MAC, index) => [
+      (index + 1).toString(),
+      MAC,
+      ...Object.values(data.items[MAC])
+    ].map((item) => index === currIndex ? item.bgRed.white : item));
+
+    ctrls.render([
+      fields,
+      ...lines,
+      [],
+      ['',`current #: ${currIndex + 1}`]
+    ], [
+      `    a = attack    ${String.fromCharCode(8593)}${String.fromCharCode(8595)} = choose   q = quit`
+    ]);
+  };
+
+  return iwconfig.getInterfaces()
+    .then((ifaceString) => new IFace(ifaceString))
+    .then((iface) => iface.down())
+    .then((iface) => iface.setMode('monitor'))
+    .then((iface) => iface.up())
+    //.then((iface) => airmon.start(iface))
+    //.then((iface) => iwconfig.getInterfaces())
+    //.then((ifaceString) => new IFace(ifaceString))
+    .then((iface) => {
+
+      //console.log(iface);
+
+      //airodump-ng --bssid 54:04:A6:5B:19:30 -w psk -c 3 mon0
+
+      return airodump.run(iface);
+    })
+    .then((airodump) => {
+
+      ctrls.setControls(airodump);
+
+      return airodump;
+    })
+    .then((airodump) => airodump.on('data', processAirodumpData))
+    .catch((error) => console.error(error));
 
 };
 
@@ -104,16 +144,19 @@ self.setControls = (airodump) => {
     }
 
     switch (key.name) {
-      case 'a':
+      case 'a': // Attack
         airodump.attack();
         break;
-      case 'up':
+      case 'up': // Previous
         airodump.moveUpStation();
         break;
-      case 'down':
+      case 'down': // Next
         airodump.moveDownStation();
         break;
-      case 'q':
+      case 'b': // Back
+        self.monitor();
+        break;
+      case 'q': // Quit
         self.quit();
         break;
       default:
@@ -127,7 +170,6 @@ self.quit = () => {
 
   process.stdin.pause();
   process.exit();
-
 };
 
 module.exports = self;

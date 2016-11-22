@@ -2,20 +2,35 @@
 
 const spawn = require('child_process').spawn;
 const os = require('os');
+const EventEmitter = require('events').EventEmitter;
 
 function parse(str) {
-  let item = {
-    BSSID: '',
-    STATION: '',
-    STATUS: ''
+  let head = {
+    STATUS: '',
+    DATA: '[ 0| 0 ACKs]'
   },
   result = [];
 
-  const lines = str.split(new RegExp(os.EOL, 'g'));
+  const lines = str.split(new RegExp(`${os.EOL}|\r`, 'g'));
 
   lines.forEach((line) => {
 
-    result.push(line);
+    line = line.trim().substr(10);
+
+    let item = Object.assign({}, head);
+
+    if (line.match(/Waiting for beacon frame \(BSSID: .+\) on channel \d/g)) {
+      item.STATUS = line.substr(0, 24);
+    }
+
+    if (line.match(/Sending 64 directed DeAuth/g)) {
+      item.STATUS = line.substr(0, 27);
+      item.ACKs = line.substr(55).replace(/[A-Za-z]+/g, '');
+    }
+
+    if (item.STATUS && item.DATA.match(/^\[[\d|\s]+\|[\d|\s]+ACKs\]$/g)) {
+      result.push(item);
+    }
   });
 
   return result;
@@ -30,28 +45,33 @@ function parse(str) {
 */
 
 
-// aireplay-ng --deauth 10 -a 64:66:B3:45:C7:F4 -c DC:85:DE:3A:53:BD  mon0
-const self = {
-  proc: null,
-  run(iface, ...options) {
+// aireplay-ng --deauth 0 -a 64:66:B3:45:C7:F4 -c DC:85:DE:3A:53:BD  mon0
 
-    this.proc = spawn('aireplay-ng', [...options, iface]);
 
-    return new Promise((resolve, reject) => {
 
-      this.proc.stdout.on('data', (data) => {
+const self = new EventEmitter();
 
-        data = parse(data.toString('UTF-8'));
+self.proc = null;
 
-        console.log(data);
-      });
+self.run = (iface, ...options) => {
 
-      this.proc.on('error', error => reject(error));
-      this.proc.stderr.on('data', data => reject(data));
+  self.proc = spawn('aireplay-ng', [...options, iface]);
 
-      resolve(self);
+  return new Promise((resolve, reject) => {
+
+    self.proc.stdout.on('data', (data) => {
+
+      data = parse(data.toString('UTF-8'));
+
+      data.forEach(item => self.emit('data', item))
     });
-  }
+
+    self.proc.on('error', error => reject(error));
+    self.proc.stderr.on('data', data => reject(data));
+
+    resolve(self);
+  });
+
 };
 
 self.quit = () => {
