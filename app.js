@@ -15,6 +15,7 @@ const IFace = require('./interface');
 
 const MONITOR = 'monitor';
 const ATTACK = 'attack';
+const RENDER_RATE = 500;
 
 const tableOptions = {
   chars: {
@@ -35,7 +36,9 @@ class AirCrackApp extends EventEmitter {
     this.handshake = false;
     this.station_index = 0;
     this.stations = [];
-    //this.renderTimer = null;
+    this.renderTimerID = null;
+    this.viewData = [];
+    this.viewInfo = [];
 
     const self = this;
 
@@ -45,10 +48,11 @@ class AirCrackApp extends EventEmitter {
      * Methods to fireup keypress actions
      */
     this.controls = {
-      a: () => self.status === 'monitor' && self.emit('attack'),  // Attack BSSID <---> STATION    airodump.attack();
+      a: () => self.status === MONITOR && self.emit('attack'),  // Attack BSSID <---> STATION    airodump.attack();
       up: () => self.emit('choose', 'up'), // Choose BSSID <---> STATION            airodump.moveUpStation();
       down: () => self.emit('choose', 'down'), // Choose BSSID <---> STATION       airodump.moveDownStation();
-      b: () => self.status === 'attack' && self.emit('monitor'), // Go back, if attack mode   self.monitor();
+      b: () => self.status === ATTACK && self.emit('monitor'), // Go back, if attack mode   self.monitor();
+      r: () => self.status === MONITOR && self.emit('reset'),
       q: () => self.emit('quit'), // Quit application
     };
   }
@@ -58,9 +62,7 @@ class AirCrackApp extends EventEmitter {
       return;
     }
 
-    //this.renderTimer = setInterval(() => {
-    //
-    //}, 500);
+    this.renderTimerID = setInterval(() => this.render(this.viewData, this.viewInfo), RENDER_RATE);
 
     process.stdin.setRawMode && process.stdin.setRawMode(true);
     process.stdin.resume();
@@ -95,15 +97,56 @@ class AirCrackApp extends EventEmitter {
   }
 
   /**
+   * Set data that will be rendered
+   * @param data
+   * @param info
+   */
+  setRender(data, info = []) {
+    this.viewData = data;
+    this.viewInfo = info;
+  }
+
+  /**
    * Set available stations from airodump parsed data
    * @param data
    */
-  setStations(data) {
-    this.stations = Object.keys(data.items).map((mac, index) => {
-      const station = Object.assign({}, data.items[mac]);
-      station['MAC'] = mac;
-      return station;
+  accumulateStations(data) {
+
+    Object.keys(data.items).sort().forEach((STATION) => {
+
+      const newItem = Object.assign({STATION}, data.items[STATION]);
+
+      let index = -1;
+      this.stations.forEach((item , i) => item.STATION === newItem.STATION && (index = i));
+
+      // Update
+      if (~index) {
+        this.stations[index] = newItem;
+      // Add new
+      } else {
+        this.stations.push(newItem);
+      }
+
     });
+
+    //if (this.stations.length) {
+    //  console.log(this.stations);
+    //}
+
+    /*
+    let lastIndex = this.stations.length - 1;
+    lastIndex = lastIndex < 0 ? 0: lastIndex;
+    if (this.station_index > lastIndex) {
+      this.station_index = 0;
+    }
+    */
+  }
+
+  /**
+   * Clean up stations prop
+   */
+  resetStations() {
+    this.stations = [];
   }
 
   /**
@@ -116,25 +159,17 @@ class AirCrackApp extends EventEmitter {
 
   /**
    * Prepare Data to render in cli
-   * @param data
    * @returns {*}
    */
-  prepareMonitorRender(data) {
+  prepareMonitorRender() {
 
-    const stationMACs = Object.keys(data.items);
     const currIndex = this.station_index;
 
-    if (!stationMACs.length) {
-      return [];
-    }
-
     // Prepare for rendering
-    const fields = ['#', 'STATION', ...Object.keys(data.items[stationMACs[0]])];
-    const lines = stationMACs.map((MAC, index) => [
-      (index + 1).toString(),
-      MAC,
-      ...Object.values(data.items[MAC])
-    ].map((item) => index === currIndex ? item.bgRed.white : item));
+    const fields = ['#', ...Object.keys(this.stations[0])];
+    const lines = this.stations.map((station, index) => [
+      (index + 1).toString(), ...Object.values(station)
+    ].map((item, i) => index === currIndex && i < 3 ? item.bgRed.white : item));
 
     return [
       fields,
@@ -148,7 +183,7 @@ class AirCrackApp extends EventEmitter {
    * Increment station index
    */
   incStationIndex() {
-    if (this.station_index < this.stations.length) {
+    if (this.station_index < this.stations.length - 1) {
       this.station_index++;
     } else {
       this.station_index = 0;
@@ -170,13 +205,54 @@ class AirCrackApp extends EventEmitter {
 
 const self = new AirCrackApp();
 
+const monitorDataEventHandler = (data) => {
+
+  self.accumulateStations(data);
+
+  if (!self.stations.length) {
+    return;
+  }
+
+  self.setRender(
+    self.prepareMonitorRender(),
+    [
+      `\ta = attack\t${String.fromCharCode(8593)}${String.fromCharCode(8595)} = choose\tr = reset\tq = quit`
+    ]
+  );
+
+};
+
+const handshakeDataEventHandler = (data) => {
+  if (data.handshake) {
+    self.handshake = true;
+  }
+};
+
+const attackDataEventHandler = (data) => {
+  const stationItem = self.getStation();
+
+  self.setRender([
+      {'HANDSHAKE': (self.handshake ? '+' : '-')},
+      {'ESSID:': stationItem.ESSID},
+      {'BSSID:': stationItem.BSSID},
+      {'STATION:': stationItem.STATION},
+      {'CHANNEL:': stationItem.CH},
+      {'STATUS:': data.STATUS},
+      {'ACKs:': data.ACKs}
+    ],
+    [
+      `    b = back   q = quit`,
+    ]
+  );
+};
+
 self.on(MONITOR, () => {
 
   self.status = MONITOR;
 
   aireplay.stop();
 
-  self.render([{'Status:': 'Starting airodump-ng...'}]);
+  self.setRender([{'Status:': 'Starting airodump-ng...'}]);
 
   iwconfig.getInterfaces()
     .then((ifaceString) => new IFace(ifaceString))
@@ -187,29 +263,15 @@ self.on(MONITOR, () => {
     //.then((iface) => iwconfig.getInterfaces())
     //.then((ifaceString) => new IFace(ifaceString))
     .then((iface) => airodump.run(iface))
-    .then((airodump) => airodump.on('data', (data) => {
-
-      self.setStations(data);
-
-      if (!self.stations.length) {
-        return;
-      }
-
-      self.render(
-        self.prepareMonitorRender(data),
-        [
-          `\ta = attack\t${String.fromCharCode(8593)}${String.fromCharCode(8595)} = choose\tq = quit`
-        ]
-      );
-    }))
+    .then((airodump) => airodump.on('data', monitorDataEventHandler))
     .catch((error) => console.error(error));
 });
 
 self.on(ATTACK, () => {
 
-  const station = self.getStation();
+  const stationItem = self.getStation();
 
-  if (!station) {
+  if (!stationItem) {
     return;
   }
 
@@ -217,50 +279,32 @@ self.on(ATTACK, () => {
 
   self.handshake = false;
 
-  self.render([{'Status:': 'Starting aireplay-ng...'}]);
+  //airodump.remove('data', monitorDataEventHandler);
+
+  self.setRender([{'Status:': 'Starting aireplay-ng...'}]);
 
   airodump.run(null,
-    '--bssid', station.BSSID,
-    '-w', station.ESSID,
-    '-c', station.CH
+    '--bssid', stationItem.BSSID,
+    '-w', stationItem.ESSID,
+    '-c', stationItem.CH
   ).then((airodump) => {
 
-    airodump.on('data', data => {
-      if (data.handshake) {
-        self.handshake = true;
-      }
-    });
+    airodump.on('data', handshakeDataEventHandler);
 
     // aireplay-ng --deauth 10 -a 64:66:B3:45:C7:F4 -c DC:85:DE:3A:53:BD  mon0
     return aireplay.run(airodump.iface,
       '--deauth', '0',
-      '-a', station.BSSID,
-      '-c', station.MAC
+      '-a', stationItem.BSSID,
+      '-c', stationItem.STATION
     );
-  }).then((aireplay) => aireplay.on('data', (item) => {
-
-    self.render(
-      [
-        {'HANDSHAKE': (self.handshake ? '+' : '-')},
-        {'ESSID:': station.ESSID},
-        {'BSSID:': station.BSSID},
-        {'STATION:': station.MAC},
-        {'CHANNEL:': station.CH},
-        {'STATUS:': item.STATUS},
-        {'ACKs:': item.ACKs}
-      ],
-      [
-        `    b = back   q = quit`,
-      ]
-    );
-
-  }));
+  }).then((aireplay) => aireplay.on('data', attackDataEventHandler))
+  .catch((error) => console.error(error));
 
 });
 
-self.on('render', (data, info) => {
-  self.render(data, info);
-});
+//self.on('render', (data, info) => {
+//  self.render(data, info);
+//});
 
 self.on('choose', (dir) => {
   if (dir === 'up') {
@@ -269,6 +313,8 @@ self.on('choose', (dir) => {
     self.incStationIndex();
   }
 });
+
+self.on('reset', self.resetStations);
 
 self.on('quit', () => {
   process.stdin.pause();

@@ -85,6 +85,9 @@ class Data {
     let applicable = {};
 
     this.stations.forEach((station) => {
+      if (!station.STATION.trim()) {
+        return;
+      }
       applicable[station.STATION] = {
         BSSID: station.BSSID,
         'STATION-PWR': station.PWR,

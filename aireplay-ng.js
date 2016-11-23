@@ -58,8 +58,8 @@ self.run = (iface, ...options) => {
       data.forEach(item => self.emit('data', item))
     });
 
-    self.proc.on('error', error => reject(error));
-    self.proc.stderr.on('data', data => reject(data));
+    //self.proc.on('error', error => reject(error));
+    //self.proc.stderr.on('data', data => reject(data));
 
     resolve(self);
   });
