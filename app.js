@@ -33,7 +33,7 @@ class AirCrackApp extends EventEmitter {
 
     this.status = null; // App status - Monitor Or Attack
     this.handshake = false;
-    this.station_index = 0;
+    this.stationIndex = 0;
     this.stations = [];
     this.renderTimerID = null;
     this.viewData = [];
@@ -140,8 +140,8 @@ class AirCrackApp extends EventEmitter {
 
     let lastIndex = this.stations.length - 1;
     lastIndex = lastIndex < 0 ? 0: lastIndex;
-    if (this.station_index > lastIndex) {
-      this.station_index = 0;
+    if (this.stationIndex > lastIndex) {
+      this.stationIndex = 0;
     }
 
   }
@@ -158,7 +158,7 @@ class AirCrackApp extends EventEmitter {
    * @returns {*}
    */
   getStation() {
-    return this.stations[this.station_index] || {};
+    return this.stations[this.stationIndex] || {};
   }
 
   /**
@@ -167,7 +167,7 @@ class AirCrackApp extends EventEmitter {
    */
   prepareMonitorRender() {
 
-    const currIndex = this.station_index;
+    const currIndex = this.stationIndex;
 
     // Prepare for rendering
     const fields = ['#', ...Object.keys(this.stations[0])];
@@ -187,10 +187,10 @@ class AirCrackApp extends EventEmitter {
    * Increment station index
    */
   incStationIndex() {
-    if (this.station_index < this.stations.length - 1) {
-      this.station_index++;
+    if (this.stationIndex < this.stations.length - 1) {
+      this.stationIndex++;
     } else {
-      this.station_index = 0;
+      this.stationIndex = 0;
     }
   }
 
@@ -198,10 +198,10 @@ class AirCrackApp extends EventEmitter {
    * Decrement station index
    */
   decStationIndex() {
-    if (this.station_index) {
-      this.station_index--;
+    if (this.stationIndex) {
+      this.stationIndex--;
     } else {
-      this.station_index =  this.stations.length ? this.stations.length - 1 : 0;
+      this.stationIndex =  this.stations.length ? this.stations.length - 1 : 0;
     }
   }
 
@@ -262,7 +262,9 @@ self.on(MONITOR, () => {
           return Promise.reject(new Error(`Trying to use unknown interface ${self.iface}`));
         }
 
-        return self.iface = iface;
+        self.iface = iface;
+
+        return self.iface;
       });
   }
 
@@ -271,7 +273,7 @@ self.on(MONITOR, () => {
 
       self.setRender([{'Starting:': `airodump-ng ${iface}`}]);
 
-      return airodump.run(iface)
+      return airodump.run(iface);
     }).then((airodump) => {
       self.setRender([{'Status:': 'Waiting for attackable STATION <---> BSSID pair.'}]);
     })

@@ -32,14 +32,14 @@ class Data {
     for (let station in applicable) {
       this.aps.forEach((ap) => {
         if (applicable[station].BSSID === ap.BSSID) {
-          applicable[station]['AP-PWR'] = ap['PWR'];
+          applicable[station]['AP-PWR'] = ap.PWR;
           applicable[station]['#Data'] = ap['#Data,'];
-          applicable[station]['Beacons'] = ap['Beacons'];
-          applicable[station]['CH'] = ap['CH'];
-          applicable[station]['ENC'] = ap['ENC'];
-          applicable[station]['CIPHER'] = ap['CIPHER'];
-          applicable[station]['AUTH'] = ap['AUTH'];
-          applicable[station]['ESSID'] = ap['ESSID'];
+          applicable[station].Beacons = ap.Beacons;
+          applicable[station].CH = ap.CH;
+          applicable[station].ENC = ap.ENC;
+          applicable[station].CIPHER = ap.CIPHER;
+          applicable[station].AUTH = ap.AUTH;
+          applicable[station].ESSID = ap.ESSID;
         }
       });
 
@@ -60,7 +60,7 @@ class Data {
     Object.keys(this.items).forEach((mac, index) => {
       if (index === num) {
         station = Object.assign({}, this.items[mac]);
-        station['MAC'] = mac;
+        station.MAC = mac;
       }
     });
     return station;

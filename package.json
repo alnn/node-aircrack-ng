@@ -9,13 +9,10 @@
   "author": "a.kazmin",
   "license": "MIT",
   "dependencies": {
-    "cli-table": "^0.3.1",
     "cli-table2": "^0.2.0",
     "colors": "^1.1.2",
     "keypress": "^0.2.1",
-    "log-update": "^1.0.2",
-    "meow": "^3.7.0",
-    "node-wifi-scanner": "^1.0.0"
+    "log-update": "^1.0.2"
   },
   "engines": {
     "node": ">=7.0.0"

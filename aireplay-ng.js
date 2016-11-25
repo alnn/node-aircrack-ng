@@ -22,7 +22,7 @@ self.run = (iface, ...options) => {
 
     data = parser.parse(data.toString('UTF-8'));
 
-    data.forEach(item => self.emit('data', item))
+    data.forEach(item => self.emit('data', item));
   });
     //self.proc.on('error', error => error);
     //self.proc.stderr.on('data', data => data);
