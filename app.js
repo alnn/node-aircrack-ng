@@ -46,12 +46,12 @@ class AirCrackApp extends EventEmitter {
      * Methods to fireup keypress actions
      */
     this.controls = {
-      a: () => self.status === MONITOR && self.emit('attack'),  // Attack BSSID <---> STATION
+      'return': () => self.status === MONITOR && self.emit('attack'),  // Attack BSSID <---> STATION
       up: () => self.emit('choose', 'up'), // Choose BSSID <---> STATION
       down: () => self.emit('choose', 'down'), // Choose BSSID <---> STATION
-      b: () => self.status === ATTACK && self.emit('monitor'), // Go back, if attack mode
+      backspace: () => self.status === ATTACK && self.emit('monitor'), // Go back, if attack mode
       r: () => self.status === MONITOR && self.emit('reset'),
-      q: () => self.emit('quit'), // Quit application
+      escape: () => self.emit('quit'), // Quit application
     };
   }
 
@@ -217,7 +217,7 @@ self.on(MONITOR, () => {
 
   self.setRender([],
     [
-      `\ta = attack\t${String.fromCharCode(8593)}${String.fromCharCode(8595)} = choose\tr = reset\tq = quit`
+      `\t${String.fromCharCode(8593)}${String.fromCharCode(8595)} = choose\tEnter = attack\tr = reset\tEsc = quit`
     ]
   );
 
@@ -303,7 +303,7 @@ self.on(ATTACK, () => {
       'Starting:': `airodump-ng --bssid ${BSSID} -w ${ESSID} -c ${CH} ${airodump.iface}`
     }],
     [
-      `    b = back   q = quit`,
+      `\tBackspace = go back\tEsc = quit`,
     ]
   );
 
