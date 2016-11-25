@@ -236,7 +236,7 @@ self.on(MONITOR, () => {
         const ifaces = data.join('|').split('|');
 
         if (!self.iface) {
-          self.iface = ifaces.pop();
+          self.iface = ifaces.shift(); // use first interface by default
         } else if (!~ifaces.indexOf(self.iface)) {
           return Promise.reject(new Error(`Invalid interface provided: ${self.iface}`));
         }
