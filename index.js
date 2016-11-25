@@ -1,25 +1,18 @@
 'use strict';
-//const iwlist = require('./iwlist');
 const airodump = require('./airodump-ng');
 const airmon = require('./airmon-ng');
-const iwconfig = require('./iwconfig');
-const IFace = require('./interface');
+const aireplay = require('./aireplay-ng');
 const airCrackApp = require('./app');
-
-//const os = require('os');
-//console.log(os.cpus().length);
 
 if (module.parent) {
 
   module.exports = {
     airodump,
     airmon,
-    iwconfig,
-    IFace,
+    aireplay,
     airCrackApp
   };
 
 } else {
-
-  airCrackApp.init();
+  airCrackApp.init(process.argv[2]);
 }

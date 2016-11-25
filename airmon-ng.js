@@ -1,26 +1,54 @@
 'use strict';
-const os = require('os');
 const spawn = require('child_process').spawn;
+const Parser = require('./parser');
+
+const parser = new Parser('airmon');
 const command = 'airmon-ng';
 
-
 const self = {
-  start(iface) {
 
-    const proc = spawn(command, [iface]);
+  data: [],
+  proc: null,
+
+  run() {
+    this.data = [];
+    this.proc = spawn(command);
+    this.proc.stdout.on('data', (data) => this.data.push(data));
+    //this.proc.stderr.on('data', (data) => this.data.push(data));
 
     return new Promise((resolve, reject) => {
 
-      proc.on('error', (err) => reject(err));
+      this.proc.stdout.once('end', () => {
+        const str = Buffer.concat(self.data).toString('UTF-8');
+        resolve(parser.parse(str));
+      });
 
-      proc.on('close', (code) => console.log(`Child process exited with code ${code}`));
-
-      proc.stdout.on('data', (data) => resolve(iface)); // ???
-
-      proc.stderr.on('data', (data) => reject(data.toString('UTF-8')));
-
+      this.proc.once('error', (error) => reject(error));
     });
+  },
+  _do(iface, action='start') {
+    this.data = [];
 
+    this.proc = spawn(command, [action, iface]);
+
+    this.proc.stdout.on('data', (data) => this.data.push(data));
+    this.proc.stderr.on('data', (data) => this.data.push(data));
+
+    return new Promise((resolve, reject) => {
+
+      this.proc.stdout.once('end', () => {
+        const str = Buffer.concat(self.data).toString('UTF-8');
+        resolve(str);
+      });
+
+      this.proc.once('error', (error) => reject(error));
+    });
+  },
+  start(iface) {
+    return this._do(iface, 'start');
+  },
+  stop(iface) {
+    return this._do(iface, 'stop');
   }
 };
 

