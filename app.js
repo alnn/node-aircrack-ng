@@ -7,9 +7,9 @@ const keypress = require('keypress');
 const os = require('os');
 const colors = require('colors');
 
-const airodump = require('./airodump-ng');
-const aireplay = require('./aireplay-ng');
-const airmon = require('./airmon-ng');
+const airodump = require('./libs/airodump-ng');
+const aireplay = require('./libs/aireplay-ng');
+const airmon = require('./libs/airmon-ng');
 
 const MONITOR = 'monitor';
 const ATTACK = 'attack';

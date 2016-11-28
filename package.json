@@ -1,13 +1,33 @@
 {
-  "name": "node-aircrack-ng",
+  "name": "node-aircrack",
   "version": "1.0.0",
-  "description": "",
+  "description": "Aircrack-ng suite (airodump-ng & aireplay-ng) wrapper for pentesting - to automate deauthentications attack (to catch handshakes)",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "a.kazmin",
+  "keywords": [
+    "aircrack",
+    "aircrack-ng",
+    "wifi",
+    "attack",
+    "crack",
+    "airodump",
+    "airodump-ng",
+    "aireplay",
+    "aireplay-ng",
+    "airmon",
+    "airmon-ng",
+    "pentesting",
+    "pentest",
+    "cli"
+  ],
+  "author": "Alexander Kazmin <ernium@gmail.com>",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "ernium/node-aircrack-ng"
+  },
   "dependencies": {
     "cli-table2": "^0.2.0",
     "colors": "^1.1.2",
@@ -16,5 +36,9 @@
   },
   "engines": {
     "node": ">=7.0.0"
-  }
+  },
+  "bin": {
+    "node-aircrack": "index.js"
+  },
+  "os" : [ "linux" ]
 }

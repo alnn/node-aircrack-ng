@@ -1,7 +1,10 @@
+#!/usr/bin/env node
+
 'use strict';
-const airodump = require('./airodump-ng');
-const airmon = require('./airmon-ng');
-const aireplay = require('./aireplay-ng');
+
+const airodump = require('./libs/airodump-ng');
+const airmon = require('./libs/airmon-ng');
+const aireplay = require('./libs/aireplay-ng');
 const airCrackApp = require('./app');
 
 if (module.parent) {

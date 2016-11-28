@@ -136,3 +136,18 @@ class Parser {
 }
 
 module.exports = Parser;
+
+//let data = new Parser('airodump').parse(` CH 14 ][ Elapsed: 6 s ][ 2016-11-27 23:07
+//
+// BSSID              PWR  Beacons    #Data, #/s  CH  MB   ENC  CIPHER AUTH ESSID
+//
+// 54:04:A6:5B:19:30  -48       26        0    0   3  54e  WPA2 TKIP   PSK  North Gargoyle
+// A0:F3:C1:EF:CE:30  -56       17        0    0   1  54e. OPN              South Gargoyle
+//
+// BSSID              STATION            PWR   Rate    Lost    Frames  Probe
+//
+// A0:F3:C1:EF:CE:30  74:2F:68:B6:85:88  -69    0 - 1      0        1
+//
+//`);
+//
+//console.log(data);

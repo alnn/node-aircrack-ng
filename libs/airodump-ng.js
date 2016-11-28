@@ -82,11 +82,14 @@ self.run = (iface, ...options) => {
   self.stop();
 
   self.proc = spawn(COMMAND, [...options, self.iface.toString()]);
+  self.proc.stderr._handle.setBlocking(true);
+
+  //self.proc.stderr._readableState.highWaterMark = 320000;
 
   // airodump-ng dumps data into stderr, not stdout
   self.proc.stderr.on('data', (data) => {
 
-    data = parser.parse(data.toString('UTF-8'));
+    data = parser.parse(data.toString());
 
     self.emit('data', self.data = new Data(data));
   });
