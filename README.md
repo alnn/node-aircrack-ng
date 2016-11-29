@@ -5,6 +5,8 @@
 
 ![Screenshot](http://i.imgur.com/u2pyYNp.png)
 
+All *.cap files will be saved to the current directory with ESSID name file prefix.
+
 ## Install
 
 ```bash
