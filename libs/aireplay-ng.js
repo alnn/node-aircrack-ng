@@ -12,15 +12,24 @@ const parser = new Parser('aireplay');
 const self = new EventEmitter();
 
 self.proc = null;
+self.data = [];
+self.timer = null;
 self.run = (iface, ...options) => {
 
   self.stop();
 
   self.proc = spawn(COMMAND, [...options, iface]);
 
+  //self.timer = setInterval(() => {
+  //  self.emit('data', Buffer.concat(self.data).toString());
+  //  self.data = [];
+  //}, 1000);
+
   self.proc.stdout.on('data', (data) => {
 
-    data = parser.parse(data.toString('UTF-8'));
+    //self.data.push(data);
+
+    data = parser.parse(data.toString());
 
     data.forEach(item => self.emit('data', item));
   });

@@ -52,6 +52,7 @@ class AirCrackApp extends EventEmitter {
       backspace: () => self.status === ATTACK && self.emit('monitor'), // Go back, if attack mode
       r: () => self.status === MONITOR && self.emit('reset'),
       escape: () => self.emit('quit'), // Quit application
+      q: () => self.emit('quit'), // Quit application
     };
   }
 
@@ -171,6 +172,7 @@ class AirCrackApp extends EventEmitter {
 
     // Prepare for rendering
     const fields = ['#', ...Object.keys(this.stations[0])];
+
     const lines = this.stations.map((station, index) => [
       (index + 1).toString(), ...Object.values(station)
     ].map((item, i) => index === currIndex && i < 3 ? item.bgRed.white : item));
@@ -229,7 +231,7 @@ self.on(MONITOR, () => {
 
     self.setRender([{'Starting:': `airmon-ng`}]);
 
-    // First run
+    // First run - run airmon-ng
     prom = airmon.run()
       .then((data) => {
 
@@ -243,18 +245,21 @@ self.on(MONITOR, () => {
 
         return self.iface;
       })
+      // Run airmon-ng start interface
       .then((iface) => {
 
         self.setRender([{'Starting:': `airmon-ng start ${iface}`}]);
 
         return airmon.start(iface);
       })
+      // Run airmon-ng
       .then((result) => {
 
         self.setRender([{'Starting:': `airmon-ng`}]);
 
         return airmon.run();
       })
+      // set interface
       .then(data => {
         const iface = data.join('|').split('|').filter(iface => ~iface.indexOf(self.iface)).pop();
 
@@ -268,7 +273,7 @@ self.on(MONITOR, () => {
       });
   }
 
-  // Start airodump-ng
+  // Run airodump-ng interface
   prom.then(iface => {
 
       self.setRender([{'Starting:': `airodump-ng ${iface}`}]);
@@ -277,7 +282,7 @@ self.on(MONITOR, () => {
     }).then((airodump) => {
       self.setRender([{'Status:': 'Waiting for attackable STATION <---> BSSID pair.'}]);
     })
-    .catch(error => self.setError(error));
+    .catch((error) => self.setError(error));
 
   self.status = MONITOR;
 
@@ -306,12 +311,14 @@ self.on(ATTACK, () => {
       `\tBackspace = go back\tEsc = quit`,
     ]
   );
-
+  // Run airodump-ng --bssid ? -w ? -c ?
   airodump.run(null,
     '--bssid', BSSID,
     '-w', ESSID,
     '-c', CH
-  ).then((airodump) => {
+  )
+  // Run aireplay-ng --deauth 0 -a ? -c ? interface
+  .then((airodump) => {
 
     self.setRender([{
       'Starting:': `aireplay-ng --deauth 0 -a ${BSSID} -c ${STATION} ${airodump.iface}`

@@ -24,8 +24,8 @@ class Data {
       }
       applicable[station.STATION] = {
         BSSID: station.BSSID,
-        'STATION-PWR': station.PWR,
-        Frames: station.Frames
+        'ST-PWR': station.PWR,
+        //Frames: station.Frames
       };
     });
 
@@ -82,9 +82,7 @@ self.run = (iface, ...options) => {
   self.stop();
 
   self.proc = spawn(COMMAND, [...options, self.iface.toString()]);
-  self.proc.stderr._handle.setBlocking(true);
-
-  //self.proc.stderr._readableState.highWaterMark = 320000;
+  //self.proc.stderr._handle.setBlocking(true);
 
   // airodump-ng dumps data into stderr, not stdout
   self.proc.stderr.on('data', (data) => {
@@ -92,6 +90,10 @@ self.run = (iface, ...options) => {
     data = parser.parse(data.toString());
 
     self.emit('data', self.data = new Data(data));
+  });
+
+  self.proc.stderr.on('end', () => {
+    console.log('The end triggered!');
   });
 
   return new Promise((resolve, reject) => {
