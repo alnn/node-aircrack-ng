@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-
 'use strict';
 
 const airodump = require('./libs/airodump-ng');

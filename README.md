@@ -7,10 +7,12 @@
 
 All *.cap files will be saved to the current directory with ESSID name file prefix.
 
+Node version should be >=7
+
 ## Install
 
 ```bash
-$ npm install --global node-aircrack
+$ sudo npm install --global node-aircrack
 ```
 
 ## Usage
