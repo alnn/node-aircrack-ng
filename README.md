@@ -1,5 +1,5 @@
 # node-aircrack-ng
-[Aircrack-ng](https://www.aircrack-ng.org/) suite (airodump-ng & aireplay-ng) wrapper for pentesting - to automate deauthentications attack (to catch handshakes)
+[Aircrack-ng](https://www.aircrack-ng.org/) suite wrapper for pentesting - to automate deauthentications attack (to catch handshakes)
 
 ![Screenshot](http://i.imgur.com/i6gjkKo.png)
 
