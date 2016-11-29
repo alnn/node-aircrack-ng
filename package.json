@@ -1,7 +1,7 @@
 {
   "name": "node-aircrack",
   "version": "1.0.2",
-  "description": "Aircrack-ng suite (airodump-ng & aireplay-ng) wrapper for pentesting - to automate deauthentications attack (to catch handshakes)",
+  "description": "Aircrack-ng suite wrapper for pentesting - to automate deauthentications attack (to catch handshakes)",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
