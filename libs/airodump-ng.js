@@ -92,9 +92,9 @@ self.run = (iface, ...options) => {
     self.emit('data', self.data = new Data(data));
   });
 
-  self.proc.stderr.on('end', () => {
-    console.log('The end triggered!');
-  });
+  //self.proc.stderr.on('end', () => {
+  //  console.log('The end triggered!');
+  //});
 
   return new Promise((resolve, reject) => {
 
