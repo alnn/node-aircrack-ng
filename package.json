@@ -1,6 +1,6 @@
 {
   "name": "node-aircrack",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Aircrack-ng suite wrapper for pentesting - to automate deauthentications attack (to catch handshakes)",
   "main": "index.js",
   "scripts": {
