@@ -1,6 +1,6 @@
 {
   "name": "node-aircrack",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Aircrack-ng suite (airodump-ng & aireplay-ng) wrapper for pentesting - to automate deauthentications attack (to catch handshakes)",
   "main": "index.js",
   "scripts": {
@@ -40,5 +40,7 @@
   "bin": {
     "node-aircrack": "index.js"
   },
-  "os" : [ "linux" ]
+  "os": [
+    "linux"
+  ]
 }
