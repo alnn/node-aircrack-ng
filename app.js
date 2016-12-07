@@ -261,7 +261,7 @@ self.on(MONITOR, () => {
       })
       // set interface
       .then(data => {
-        const iface = data.join('|').split('|').filter(iface => ~iface.indexOf(self.iface)).pop();
+        const iface = data.join('|').split('|').filter(iface => ~iface.indexOf('mon')).pop();
 
         if (!iface) {
           return Promise.reject(new Error(`Trying to use unknown interface ${self.iface}`));
